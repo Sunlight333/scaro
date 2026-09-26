@@ -40,7 +40,7 @@ Você vai ver algo assim:
     "credit": "“Miserere mei, Deus” (Gregorio Allegri) · Ensamble Escénico Vocal, ...",
     "creditUrl": "https://commons.wikimedia.org/wiki/File:Allegri_-_..."
   },
-  "neon": "animado"
+  "neon": "estatico"
 }
 ```
 
@@ -127,14 +127,16 @@ Das próximas vezes, basta repetir os passos 2 e 3 com a imagem nova.
 
 A música começa baixinho quando o visitante toca na página pela primeira vez, e ele pode silenciar pelo botão 🔈 no canto inferior esquerdo. O site lembra a escolha dele.
 
+Ela toca no computador e no celular, inclusive no iPhone com o modo silencioso ligado, e **continua tocando em segundo plano** quando o visitante abre um link em outra aba ou bloqueia a tela. No celular aparece o controle "Trilha sonora · SACRO" na tela de bloqueio e nas notificações, onde dá para pausar.
+
+**Quando a música para (e não dá para evitar):** dentro do navegador do Instagram ou do TikTok, ao tocar em um link o próprio app troca a página, e ao abrir o WhatsApp o navegador vai para segundo plano. Nesses casos o sistema do celular fecha ou pausa a página. Quando a pessoa volta, basta tocar na página para a música continuar.
+
 - **Desligar a música:** troque `"enabled": true` por `"enabled": false`.
 - **Ligar de novo:** volte para `true`.
 
 **Não apague o `credit` nem o `creditUrl`.** A licença da gravação (CC BY) exige esse crédito, que aparece em letras pequenas no fim da página.
 
 Se trocar a música, ela precisa ser de **domínio público ou com licença que permita uso comercial**. Músicas comuns do Spotify ou YouTube **não podem** ser usadas. Fale com o desenvolvedor antes de trocar o arquivo. As outras duas opções aprovadas, com os créditos prontos, estão no arquivo `FONTES.md` que acompanha as músicas.
-
-**No iPhone:** se a chave lateral de silencioso estiver ligada, a música não toca. Isso é do próprio iPhone e é normal.
 
 ## 10. Salvar e publicar
 
@@ -163,12 +165,12 @@ Aparece um aviso no topo da página:
 
 ## 12. Efeito neon dos botões
 
-Existem dois estilos:
+Existem dois estilos. O site usa o **estático**, escolhido por você:
 
+- `"neon": "estatico"`: brilho fixo, sem movimento (atual).
 - `"neon": "animado"`: uma luz percorre a borda dos botões.
-- `"neon": "estatico"`: brilho fixo, sem movimento.
 
-Para comparar antes de escolher: **links.usesacro.com.br/?neon=animado** e **links.usesacro.com.br/?neon=estatico**
+Para comparar: **links.usesacro.com.br/?neon=estatico** e **links.usesacro.com.br/?neon=animado**
 
 Quem usa o celular no modo "reduzir movimento" sempre vê o estilo estático.
 

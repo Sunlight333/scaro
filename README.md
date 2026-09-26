@@ -45,34 +45,37 @@ Useful URLs:
 | `buttons[]` | `{ label, url }`, rendered in order, no limit. Entries without a label or a valid URL are skipped (listed by `?verificar`). |
 | `novidades` | `{ title, image, url }`. Empty `url` = not clickable, no hover. Empty or broken `image` = branded placeholder (logo on dark gradient). Recommended image 1200×560, JPG/WebP, < 200 KB. |
 | `music` | `{ enabled, file, credit }`, plus optional `creditUrl` (turns the footer credit into a link, e.g. to the license). `credit` shows as a small footer line. |
-| `neon` | `"animado"` (variant B) or `"estatico"` (variant A). Optional; defaults to `"animado"`. |
+| `neon` | `"estatico"` (variant A, the client's choice) or `"animado"` (variant B). Optional; defaults to `"estatico"`. |
 
 Robustness: URLs are checked (`http`, `https`, `mailto`, `tel` only) and tracking parameters (`utm_*`, `si`, `igsh`, `igshid`, `stkn`, `_r`, `_t`, `fbclid`) are stripped automatically. If `links.json` is missing or invalid JSON, `app.js` logs the error and renders the built-in `DEFAULTS` at the top of `app.js`. **Keep `DEFAULTS` in sync with `links.json` when the content changes significantly**, since it is the safety net.
 
 ## Design
 
-Follows the approved mockup (rascunho 2) and the design spec: near-black background with corner light, 110 px logo, thin italic Exo 2, outline social icons with 48 px tap targets, full-width glass pills with a 1 px light border and soft white glow, Novidades card with title bar + 1200:560 image area. The column is `clamp(240px, 72vw, 400px)`, matching the mockup's proportions on phones.
+Follows the approved mockup (rascunho 2) and the design spec: near-black diagonal gradient with soft light behind the logo and in two corners, logo up to 94 px tall (86 px on a typical phone), thin italic Exo 2, outline social icons with 48 px tap targets, full-width glass pills with a 1 px light border and soft white glow, Novidades card with title bar + 1200:560 image area. The column is `clamp(240px, 72vw, 400px)`, matching the mockup's proportions on phones.
 
 **Neon variants** (both CSS-only):
 
-- **A, estático:** static soft glow; also what `prefers-reduced-motion` users always get.
+- **A, estático (live):** static soft glow, chosen by the client. It's also what `prefers-reduced-motion` users always get, which is likely why the client's phone already showed it.
 - **B, animado:** a light spot circles the border of each button (6 s) and the card (8.5 s), with a soft halo outside the border. Instead of a rotating `conic-gradient` (which on a wide pill crawls along the long edges and whips around the ends), the spot moves along the real rounded outline using `transform`-only keyframes, so it runs at an even speed on the GPU with no repaints. Measured in Chrome: max 0.74 px off the outline, 1.69–1.77 px per frame (p10–p90).
 
 ## Background music
 
-- Never autoplays. Starts on the first `pointerdown`/`touchstart`/`keydown` anywhere on the page (also `pointerup`/`touchend`/`click`, because touch browsers only unlock audio on those). Taps on the mute button don't count.
+- Never autoplays. Starts on the first `pointerdown`/`touchstart`/`keydown` anywhere on the page (also `pointerup`/`touchend`/`click`, because touch browsers only accept those as the gesture that allows sound). Taps on the mute button don't count.
 - The file is not requested before that interaction.
-- Fades in over ~2 s to gain 0.25, loops gaplessly, pauses when the tab is hidden and resumes on return unless muted.
-- Mute choice is stored in `localStorage` (`sacro:muted`, guarded by try/catch).
-- iPhone: Web Audio follows the silent switch, so with silent mode on the music doesn't play. That is expected; it's explained in GUIA.md.
+- Fades in over ~2 s (except on iOS, see below) and loops.
+- **Keeps playing in the background**, at the client's request: in another tab, with the screen locked, and on iPhones with the silent switch on. This replaces FR-14 ("pause when the tab is hidden"). Phones show "Trilha sonora · SACRO" with play/pause in their media controls (Media Session API), and pausing there counts as muting.
+- Mute choice is stored in `localStorage` (`sacro:muted`, guarded by try/catch). If the system pauses the music (a call, headphones unplugged), the next tap on the page resumes it.
+- It can't survive the page being closed. In the Instagram/TikTok in-app browsers a link replaces the page, and opening WhatsApp backgrounds the in-app browser, so the music stops there. No website can prevent that.
 
-Implementation: the MP3 is fetched and decoded into an `AudioBuffer` and played by a looping `AudioBufferSourceNode` → `GainNode`. This deviates slightly from the plan's "HTMLAudioElement + GainNode": `<audio loop>` leaves an audible gap at the loop point with MP3, which would fail the "loops without a gap" acceptance criterion. The GainNode still provides the fade and volume on iOS, where `audio.volume` is read-only.
+Implementation: a plain `<audio loop>` element. The first version decoded the file into Web Audio for a sample-accurate loop, but iPhones mute Web Audio when the silent switch is on (so the client heard nothing on mobile), and browsers suspend it in background tabs. Media elements are exempt from both. Trade-offs:
+- **Volume on iOS:** iOS ignores `audio.volume`, so the level is baked into the file: -26 LUFS, close to the approved desktop level (the old -16 LUFS file at gain 0.25 ≈ -28 LUFS). On iOS the music starts at that level without the fade.
+- **Loop point:** some browsers leave a few milliseconds of silence when the loop restarts. It falls on a natural breath between verses, where the track is already quiet.
 
 Track requirements (FR-15/16): public domain or free license allowing commercial use, 30–60 s loop, MP3 ~96 kbps, < 600 KB; any required credit goes in `music.credit`.
 
-**Current track (`assets/trilha.mp3`):** Allegri, *Miserere mei, Deus*, performed by Ensamble Escénico Vocal (Sistema Nacional de Fomento Musical, México), from Wikimedia Commons, **CC BY 3.0**. 41.8 s, 96 kbps CBR stereo, 491 KB, -16 LUFS. The license requires attribution, which is in `music.credit` + `music.creditUrl` and shown in the footer. Two alternatives (Palestrina / The Tudor Consort, Byrd / Ensemble Morales, both CC BY 3.0) with sources, license checks and ready-made credit lines are in `../music-options/FONTES.md`, for the client to listen to and choose.
+**Current track (`assets/trilha.mp3`):** Allegri, *Miserere mei, Deus*, performed by Ensamble Escénico Vocal (Sistema Nacional de Fomento Musical, México), from Wikimedia Commons, **CC BY 3.0**. 41.8 s, 96 kbps CBR stereo, 491 KB, -26 LUFS. The license requires attribution, which is in `music.credit` + `music.creditUrl` and shown in the footer. Two alternatives (Palestrina / The Tudor Consort, Byrd / Ensemble Morales, both CC BY 3.0) with sources, license checks and ready-made credit lines are in `../music-options/FONTES.md`, for the client to listen to and choose.
 
-How the loops were made (ffmpeg): a ~45 s window with steady loudness, picked by EBU R128 analysis and a chroma match at the join. The last 3 s are crossfaded (equal power) into the first 3 s so the end flows into the start. The result is loudness-normalized to about -16 LUFS and encoded with `libmp3lame -b:a 96k` (the LAME/Info header lets decoders trim encoder padding). In Chrome, the decoded buffer is exactly 41.8 s and the step across the loop seam is smaller than an average sample step, so there's no click.
+How the loops were made (ffmpeg): a ~45 s window with steady loudness, picked by EBU R128 analysis and a chroma match at the join. The last 3 s are crossfaded (equal power) into the first 3 s so the end flows into the start. The result is loudness-normalized to about -26 LUFS (linear gain from the lossless loop, no compression) and encoded with `libmp3lame -b:a 96k` (the LAME/Info header lets decoders trim encoder padding). The step across the loop seam is smaller than an average sample step, so there's no click.
 
 ## Analytics (GA4)
 
@@ -145,14 +148,14 @@ Verified locally (headless Chrome over the DevTools protocol, Lighthouse 13.5):
 - A local server applying those routes plus Vercel's defaults and `.vercelignore` gave Lighthouse mobile **100 / 100 / 100 / 100** (LCP 1.5 s, 81 KiB). Headers are correct per path, `README.md`/`GUIA.md` are not published, there are no console or CSP errors, and music starts on tap.
 - With GA4 + consent notice + a Novidades image (plain test server, no gzip): 99 / 100 / 100 / 100, LCP 1.8 s, 284 KiB.
 - No horizontal scroll at 320 px and 390 px, desktop layout OK, no console errors, no CSP violations (gtag.js loads and GA hits are sent under the CSP).
-- Music: nothing is fetched before the first tap; after the tap, the context runs and gain fades 0 → 0.245 in 2.6 s with the loop on; mute suspends and is remembered across reloads; a tap while muted fetches nothing; unmute restarts; hidden tab suspends, visible resumes.
+- Music: nothing is fetched before the first tap. After the tap it plays and the volume fades 0 → 1 in 2 s. It keeps playing with the tab hidden and loops past the 41.8 s end. Mute pauses it and is remembered across reloads, and a tap while muted fetches nothing. Unmute restarts it, a system pause is resumed by the next tap, and the Media Session metadata is set.
 - Config: edited `links.json` renders (4th button, YouTube enabled, tracking params stripped, clickable Novidades with image); invalid entries skipped with warnings; broken JSON falls back to defaults; `?verificar` reports each case; broken image path shows the placeholder; `music.enabled: false` hides the mute button.
 - GA events: `link_click` (button / social / novidades) with correct params, `music_play`, `music_mute`, consent default/update.
 - `prefers-reduced-motion` falls back to variant A.
 
 Still to verify on launch (needs real devices or client accounts):
 
-- Real iPhone (Safari) and Android (Chrome, Samsung Internet), plus the Instagram and TikTok in-app browsers: first-tap music start, silent-switch behavior, WhatsApp links opening the app.
+- Real iPhone (Safari) and Android (Chrome, Samsung Internet), plus the Instagram and TikTok in-app browsers: first-tap music start, playback with the silent switch on, music continuing after a link opens in a new tab and with the screen locked, lock-screen controls, and WhatsApp links opening the app.
 - GA4 realtime showing `link_click` with link names on the real property.
 - The real Vercel deployment. The config was validated and emulated locally, not deployed. After the first deploy, check the headers with `curl -I`, confirm the domain and HTTPS work, and confirm the store on the root domain is unaffected.
 - The client listening to the music options and picking one.

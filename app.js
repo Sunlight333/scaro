@@ -33,12 +33,11 @@
       credit: '“Miserere mei, Deus” (Gregorio Allegri) · Ensamble Escénico Vocal, Sistema Nacional de Fomento Musical (México), via Wikimedia Commons · CC BY 3.0 · trecho editado',
       creditUrl: 'https://commons.wikimedia.org/wiki/File:Allegri_-_Miserere_Mei,_Deus_-_Ensamble_Esc%C3%A9nico_Vocal.webm',
     },
-    neon: 'animado',
+    neon: 'estatico',
   };
 
   const SOCIAL_LABELS = { spotify: 'Spotify', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', discord: 'Discord' };
   const TRACKING_PARAM = /^(utm_\w+|si|igsh|igshid|stkn|_r|_t|fbclid)$/i;
-  const MUSIC_VOLUME = 0.25;
   const FADE_IN_SECONDS = 2;
   const KEY_MUTED = 'sacro:muted';
   const KEY_CONSENT = 'sacro:consent';
@@ -136,10 +135,10 @@
       creditUrl: cleanUrl(m.creditUrl),
     };
 
-    const neonWanted = (query.get('neon') || text(raw.neon) || 'animado').toLowerCase();
-    let neon = 'animado';
-    if (['estatico', 'estático', 'a'].includes(neonWanted)) neon = 'estatico';
-    else if (!['animado', 'b'].includes(neonWanted)) warnings.push(`"neon" deve ser "animado" ou "estatico". Usando "animado".`);
+    const neonWanted = (query.get('neon') || text(raw.neon) || 'estatico').toLowerCase();
+    let neon = 'estatico';
+    if (['animado', 'b'].includes(neonWanted)) neon = 'animado';
+    else if (!['estatico', 'estático', 'a'].includes(neonWanted)) warnings.push(`"neon" deve ser "estatico" ou "animado". Usando "estatico".`);
 
     return { welcome, social, buttons, novidades, music, neon };
   }
@@ -304,122 +303,110 @@
   /* ---------- Background music ---------- */
 
   /*
-    Browsers only allow sound after a user gesture, and iOS ignores
-    audio.volume, so the track is decoded into an AudioBuffer (sample-accurate,
-    gapless loop) and played through a GainNode for the fade and volume.
+    Plays through a plain <audio> element rather than the Web Audio API:
+    iPhones mute Web Audio when the silent switch is on, but let media elements
+    play, and media elements keep playing in the background (another tab, the
+    lock screen) with the phone's media controls. iOS ignores audio.volume, so
+    the track itself is mastered at the quiet background level (about -26 LUFS)
+    and the fade-in only happens where volume works.
     Nothing is downloaded before the first interaction.
   */
   function setupMusic(music, track) {
     const button = document.getElementById('mute');
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!music.enabled || !AudioCtx) return;
+    if (!music.enabled) return;
 
     let muted = storage.get(KEY_MUTED) === '1';
     let failed = false;
-    let ctx = null;
-    let gain = null;
-    let buffer = null;
-    let source = null;
+    let audio = null;
+    let starting = false;
+    let fadeTimer = 0;
 
     const syncButton = () => button.setAttribute('aria-pressed', String(muted));
     syncButton();
     button.hidden = false;
 
-    // Exponential approach from the current level; ~95% after `seconds`.
-    function fadeTo(value, seconds) {
-      const now = ctx.currentTime;
-      gain.gain.cancelScheduledValues(now);
-      gain.gain.setTargetAtTime(value, now, seconds / 3);
-    }
-
-    function begin() {
-      if (source || !buffer || muted || document.hidden || ctx.state !== 'running') return;
-      source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      source.connect(gain);
-      source.start();
-      fadeTo(MUSIC_VOLUME, FADE_IN_SECONDS);
-      track('music_play');
-    }
-
     function fail(err) {
       console.warn('[SACRO] Música indisponível:', err);
       failed = true;
       button.hidden = true;
-      if (ctx) ctx.close().catch(() => {});
+      if (audio) audio.pause();
     }
 
-    // Must run inside a user gesture (creates/resumes the AudioContext).
-    function start() {
-      if (!ctx) {
-        try {
-          ctx = new AudioCtx();
-        } catch (err) {
-          fail(err);
-          return;
-        }
-        gain = ctx.createGain();
-        gain.gain.value = 0;
-        gain.connect(ctx.destination);
-        ctx.addEventListener('statechange', begin);
-        fetch(music.file)
-          .then((res) => {
-            if (!res.ok) throw new Error(`${music.file}: HTTP ${res.status}`);
-            return res.arrayBuffer();
-          })
-          .then((data) => new Promise((resolve, reject) => ctx.decodeAudioData(data, resolve, reject)))
-          .then((decoded) => {
-            buffer = decoded;
-            begin();
-          })
-          .catch(fail);
+    // Quadratic curve sounds even; a no-op on iOS, where volume stays at 1.
+    function fadeIn() {
+      clearInterval(fadeTimer);
+      const began = performance.now();
+      audio.volume = 0;
+      fadeTimer = setInterval(() => {
+        const t = Math.min((performance.now() - began) / (FADE_IN_SECONDS * 1000), 1);
+        audio.volume = t * t;
+        if (t === 1) clearInterval(fadeTimer);
+      }, 50);
+    }
+
+    // The first call must happen inside a user gesture.
+    function play() {
+      if (!audio) {
+        audio = new Audio();
+        audio.loop = true;
+        audio.preload = 'auto';
+        audio.addEventListener('error', () => fail(audio.error), { once: true });
+        audio.src = music.file;
+        describeToSystem();
       }
-      if (ctx.state !== 'running') ctx.resume().catch(() => {});
-      begin();
+      if (starting || !audio.paused) return;
+      starting = true;
+      fadeIn();
+      audio.play()
+        .then(() => track('music_play'))
+        .catch(() => clearInterval(fadeTimer))   // not a gesture the browser accepts; the next one retries
+        .finally(() => { starting = false; });
     }
 
-    // Different browsers unlock audio on different events (touch unlocks on
-    // pointerup/touchend), so listen to all of them. The listener stays on to
-    // resume after iOS interrupts the audio session.
-    function onGesture(e) {
-      if (failed || muted || button.contains(e.target)) return;
-      if (!source) start();
-      else if (ctx.state !== 'running' && !document.hidden) ctx.resume().catch(() => {});
-    }
-    for (const type of ['pointerdown', 'touchstart', 'keydown', 'pointerup', 'touchend', 'click']) {
-      document.addEventListener(type, onGesture, { capture: true, passive: true });
-    }
-
-    button.addEventListener('click', () => {
-      muted = !muted;
+    function setMuted(value) {
+      muted = value;
       storage.set(KEY_MUTED, muted ? '1' : '0');
       syncButton();
       if (failed) return;
       if (muted) {
         track('music_mute');
-        if (source) {
-          fadeTo(0, 0.3);
-          setTimeout(() => { if (muted) ctx.suspend().catch(() => {}); }, 350);
-        }
-      } else if (!source) {
-        start();
+        clearInterval(fadeTimer);
+        if (audio) audio.pause();
       } else {
-        ctx.resume().catch(() => {});
-        fadeTo(MUSIC_VOLUME, 0.6);
-        track('music_play');
+        play();
       }
-    });
+    }
 
-    document.addEventListener('visibilitychange', () => {
-      if (!ctx || failed) return;
-      if (document.hidden) {
-        ctx.suspend().catch(() => {});
-      } else if (!muted) {
-        ctx.resume().catch(() => {});
-        begin();
-      }
-    });
+    // Title, artwork and play/pause on the lock screen and notification shade.
+    function describeToSystem() {
+      if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'Trilha sonora',
+          artist: 'SACRO',
+          artwork: [
+            { src: new URL('assets/apple-touch-icon.png', location.href).href, sizes: '180x180', type: 'image/png' },
+            { src: new URL('assets/favicon.png', location.href).href, sizes: '192x192', type: 'image/png' },
+          ],
+        });
+        navigator.mediaSession.setActionHandler('play', () => setMuted(false));
+        navigator.mediaSession.setActionHandler('pause', () => setMuted(true));
+      } catch (e) { /* older browsers: no system controls */ }
+    }
+
+    // Browsers accept different events as the gesture that allows sound
+    // (touch: pointerup/touchend), so listen to all of them. The listener
+    // stays on so a tap resumes the music if the system paused it (a call,
+    // headphones unplugged).
+    function onGesture(e) {
+      if (failed || muted || button.contains(e.target)) return;
+      if (!audio || audio.paused) play();
+    }
+    for (const type of ['pointerdown', 'touchstart', 'keydown', 'pointerup', 'touchend', 'click']) {
+      document.addEventListener(type, onGesture, { capture: true, passive: true });
+    }
+
+    button.addEventListener('click', () => setMuted(!muted));
   }
 
   /* ---------- ?verificar: links.json check for the site owner ---------- */
