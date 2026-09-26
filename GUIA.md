@@ -127,9 +127,12 @@ Das próximas vezes, basta repetir os passos 2 e 3 com a imagem nova.
 
 A música começa baixinho quando o visitante toca na página pela primeira vez, e ele pode silenciar pelo botão 🔈 no canto inferior esquerdo. O site lembra a escolha dele.
 
-Ela toca no computador e no celular, inclusive no iPhone com o modo silencioso ligado, e **continua tocando em segundo plano** quando o visitante abre um link em outra aba ou bloqueia a tela. No celular aparece o controle "Trilha sonora · SACRO" na tela de bloqueio e nas notificações, onde dá para pausar.
+Ela toca no computador e no celular, inclusive no iPhone com o modo silencioso ligado.
 
-**Quando a música para (e não dá para evitar):** dentro do navegador do Instagram ou do TikTok, ao tocar em um link o próprio app troca a página, e ao abrir o WhatsApp o navegador vai para segundo plano. Nesses casos o sistema do celular fecha ou pausa a página. Quando a pessoa volta, basta tocar na página para a música continuar.
+**Quando o visitante sai da página:**
+
+- **No computador:** a música continua tocando enquanto ele navega em outras abas (por exemplo, na loja).
+- **No celular:** a música pausa quando a pessoa vai para o WhatsApp, o Instagram, outra aba ou bloqueia a tela, e **continua de onde parou** quando ela volta para a página. Se o navegador tiver recarregado a página nesse meio-tempo, a música continua do mesmo ponto assim que a pessoa tocar na tela.
 
 - **Desligar a música:** troque `"enabled": true` por `"enabled": false`.
 - **Ligar de novo:** volte para `true`.

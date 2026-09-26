@@ -63,11 +63,16 @@ Follows the approved mockup (rascunho 2) and the design spec: near-black diagona
 - Never autoplays. Starts on the first `pointerdown`/`touchstart`/`keydown` anywhere on the page (also `pointerup`/`touchend`/`click`, because touch browsers only accept those as the gesture that allows sound). Taps on the mute button don't count.
 - The file is not requested before that interaction.
 - Fades in over ~2 s (except on iOS, see below) and loops.
-- **Keeps playing in the background**, at the client's request: in another tab, with the screen locked, and on iPhones with the silent switch on. This replaces FR-14 ("pause when the tab is hidden"). Phones show "Trilha sonora · SACRO" with play/pause in their media controls (Media Session API), and pausing there counts as muting.
+- Plays on iPhones with the silent switch on.
+- **Leaving the page**, as agreed with the client (this replaces FR-14):
+  - **Computer:** the music keeps playing while the visitor browses other tabs.
+  - **Phone** (`hover: none` and `pointer: coarse`): it pauses when the page is hidden (WhatsApp, Instagram, another tab, the lock screen) and continues from the same point on return. On phones the system pauses browser audio when another app takes over anyway, and nobody wants the choir playing over the VIP WhatsApp group.
+  - The position is also kept in `sessionStorage` (`sacro:musicTime`). If an in-app browser reloaded the page, or the page came back from the back/forward cache, the music continues from there, on the next tap if the browser requires a new gesture after a reload.
 - Mute choice is stored in `localStorage` (`sacro:muted`, guarded by try/catch). If the system pauses the music (a call, headphones unplugged), the next tap on the page resumes it.
-- It can't survive the page being closed. In the Instagram/TikTok in-app browsers a link replaces the page, and opening WhatsApp backgrounds the in-app browser, so the music stops there. No website can prevent that.
+- Phones show "Trilha sonora · SACRO" in their media controls (Media Session API); pausing there counts as muting.
+- Analytics: `music_play` counts the first start and each unmute, not automatic resumes.
 
-Implementation: a plain `<audio loop>` element. The first version decoded the file into Web Audio for a sample-accurate loop, but iPhones mute Web Audio when the silent switch is on (so the client heard nothing on mobile), and browsers suspend it in background tabs. Media elements are exempt from both. Trade-offs:
+Implementation: a plain `<audio loop>` element. The first version decoded the file into Web Audio for a sample-accurate loop, but iPhones mute Web Audio when the silent switch is on, so the client heard nothing on mobile. Browsers also suspend Web Audio in background tabs, which ruled out playing on while the visitor browses other tabs on a computer. Media elements are exempt from both. Trade-offs:
 - **Volume on iOS:** iOS ignores `audio.volume`, so the level is baked into the file: -26 LUFS, close to the approved desktop level (the old -16 LUFS file at gain 0.25 ≈ -28 LUFS). On iOS the music starts at that level without the fade.
 - **Loop point:** some browsers leave a few milliseconds of silence when the loop restarts. It falls on a natural breath between verses, where the track is already quiet.
 
@@ -148,14 +153,18 @@ Verified locally (headless Chrome over the DevTools protocol, Lighthouse 13.5):
 - A local server applying those routes plus Vercel's defaults and `.vercelignore` gave Lighthouse mobile **100 / 100 / 100 / 100** (LCP 1.5 s, 81 KiB). Headers are correct per path, `README.md`/`GUIA.md` are not published, there are no console or CSP errors, and music starts on tap.
 - With GA4 + consent notice + a Novidades image (plain test server, no gzip): 99 / 100 / 100 / 100, LCP 1.8 s, 284 KiB.
 - No horizontal scroll at 320 px and 390 px, desktop layout OK, no console errors, no CSP violations (gtag.js loads and GA hits are sent under the CSP).
-- Music: nothing is fetched before the first tap. After the tap it plays and the volume fades 0 → 1 in 2 s. It keeps playing with the tab hidden and loops past the 41.8 s end. Mute pauses it and is remembered across reloads, and a tap while muted fetches nothing. Unmute restarts it, a system pause is resumed by the next tap, and the Media Session metadata is set.
+- Music: nothing is fetched before the first tap. After the tap it plays and the volume fades 0 → 1 in 2 s, and it loops past the 41.8 s end (also when starting from a saved position).
+  - **Phone:** it pauses with the page hidden and continues from the same point on return. After a reload, a tap continues from the saved position (5.0 s).
+  - **Computer:** it keeps playing with the tab hidden.
+  - Mute pauses it and is remembered across reloads, and a tap while muted fetches nothing. Unmute restarts it, and a system pause is resumed by the next tap.
+  - `music_play` fires once per start, not per resume. The Media Session metadata is set.
 - Config: edited `links.json` renders (4th button, YouTube enabled, tracking params stripped, clickable Novidades with image); invalid entries skipped with warnings; broken JSON falls back to defaults; `?verificar` reports each case; broken image path shows the placeholder; `music.enabled: false` hides the mute button.
 - GA events: `link_click` (button / social / novidades) with correct params, `music_play`, `music_mute`, consent default/update.
 - `prefers-reduced-motion` falls back to variant A.
 
 Still to verify on launch (needs real devices or client accounts):
 
-- Real iPhone (Safari) and Android (Chrome, Samsung Internet), plus the Instagram and TikTok in-app browsers: first-tap music start, playback with the silent switch on, music continuing after a link opens in a new tab and with the screen locked, lock-screen controls, and WhatsApp links opening the app.
+- Real iPhone (Safari) and Android (Chrome, Samsung Internet), plus the Instagram and TikTok in-app browsers: first-tap music start, playback with the silent switch on, the music pausing when the visitor leaves for WhatsApp, Instagram or another tab and continuing from the same point on return, and WhatsApp links opening the app.
 - GA4 realtime showing `link_click` with link names on the real property.
 - The real Vercel deployment. The config was validated and emulated locally, not deployed. After the first deploy, check the headers with `curl -I`, confirm the domain and HTTPS work, and confirm the store on the root domain is unaffected.
 - The client listening to the music options and picking one.

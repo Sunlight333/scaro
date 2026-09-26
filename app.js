@@ -41,17 +41,23 @@
   const FADE_IN_SECONDS = 2;
   const KEY_MUTED = 'sacro:muted';
   const KEY_CONSENT = 'sacro:consent';
+  const KEY_MUSIC_TIME = 'sacro:musicTime';
 
   const query = new URLSearchParams(location.search);
 
-  const storage = {
-    get(key) {
-      try { return localStorage.getItem(key); } catch (e) { return null; }
-    },
-    set(key, value) {
-      try { localStorage.setItem(key, value); } catch (e) { /* blocked or private mode */ }
-    },
-  };
+  // localStorage/sessionStorage can be missing or throw (private mode, blocked site data).
+  function safeStore(name) {
+    return {
+      get(key) {
+        try { return window[name].getItem(key); } catch (e) { return null; }
+      },
+      set(key, value) {
+        try { window[name].setItem(key, value); } catch (e) { /* blocked or private mode */ }
+      },
+    };
+  }
+  const storage = safeStore('localStorage');
+  const session = safeStore('sessionStorage');
 
   /* ---------- links.json ---------- */
 
@@ -304,22 +310,30 @@
 
   /*
     Plays through a plain <audio> element rather than the Web Audio API:
-    iPhones mute Web Audio when the silent switch is on, but let media elements
-    play, and media elements keep playing in the background (another tab, the
-    lock screen) with the phone's media controls. iOS ignores audio.volume, so
-    the track itself is mastered at the quiet background level (about -26 LUFS)
-    and the fade-in only happens where volume works.
-    Nothing is downloaded before the first interaction.
+    iPhones mute Web Audio when the silent switch is on but let media elements
+    play. iOS ignores audio.volume, so the track itself is mastered at the quiet
+    background level (about -26 LUFS) and the fade-in only happens where volume
+    works. Nothing is downloaded before the first interaction.
+
+    Leaving the page, as agreed with the client:
+    - Computer: the music keeps playing while the visitor browses other tabs.
+    - Phone: it pauses (no choir over WhatsApp) and continues from the same
+      point when the visitor comes back. If the page was reloaded meanwhile,
+      the position is kept for this visit and the music continues on the next
+      tap, since browsers need a new gesture before playing sound.
   */
   function setupMusic(music, track) {
     const button = document.getElementById('mute');
     if (!music.enabled) return;
 
+    const isPhone = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
     let muted = storage.get(KEY_MUTED) === '1';
     let failed = false;
     let audio = null;
     let starting = false;
     let fadeTimer = 0;
+    let resumeOnReturn = false;
+    let hasPlayed = false;
 
     const syncButton = () => button.setAttribute('aria-pressed', String(muted));
     syncButton();
@@ -344,27 +358,33 @@
       }, 50);
     }
 
-    // The first call must happen inside a user gesture.
-    function play() {
+    // The first call must happen inside a user gesture. Analytics counts the
+    // first successful start and unmutes (`counts`), not resumes.
+    function play(counts) {
       if (!audio) {
         audio = new Audio();
         audio.loop = true;
         audio.preload = 'auto';
         audio.addEventListener('error', () => fail(audio.error), { once: true });
-        audio.src = music.file;
+        const savedTime = parseFloat(session.get(KEY_MUSIC_TIME));
+        audio.src = savedTime > 0 ? `${music.file}#t=${savedTime.toFixed(1)}` : music.file;
         describeToSystem();
       }
       if (starting || !audio.paused) return;
       starting = true;
       fadeIn();
       audio.play()
-        .then(() => track('music_play'))
+        .then(() => {
+          if (counts || !hasPlayed) track('music_play');
+          hasPlayed = true;
+        })
         .catch(() => clearInterval(fadeTimer))   // not a gesture the browser accepts; the next one retries
         .finally(() => { starting = false; });
     }
 
     function setMuted(value) {
       muted = value;
+      resumeOnReturn = false;
       storage.set(KEY_MUTED, muted ? '1' : '0');
       syncButton();
       if (failed) return;
@@ -373,9 +393,42 @@
         clearInterval(fadeTimer);
         if (audio) audio.pause();
       } else {
-        play();
+        play(true);
       }
     }
+
+    function rememberPosition() {
+      if (audio && audio.currentTime > 0) session.set(KEY_MUSIC_TIME, audio.currentTime.toFixed(1));
+    }
+
+    // Phone left for another app, tab or the lock screen: pause, remember the spot.
+    function leave() {
+      if (!audio || failed) return;
+      rememberPosition();
+      if (!audio.paused || starting) {
+        resumeOnReturn = true;
+        clearInterval(fadeTimer);
+        audio.pause();
+      }
+    }
+
+    // Back on the page: continue where it stopped. Browsers allow this without
+    // a new tap because this audio element already played after one; if one
+    // refuses, the next tap resumes (onGesture).
+    function comeBack() {
+      if (!resumeOnReturn) return;
+      resumeOnReturn = false;
+      if (!muted && !failed) play(false);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) comeBack();
+      else if (isPhone) leave();
+      else rememberPosition();
+    });
+    // Leaving the page itself (in-app browsers replace it when a link is tapped).
+    window.addEventListener('pagehide', leave);
+    window.addEventListener('pageshow', (e) => { if (e.persisted) comeBack(); });
 
     // Title, artwork and play/pause on the lock screen and notification shade.
     function describeToSystem() {
@@ -400,7 +453,10 @@
     // headphones unplugged).
     function onGesture(e) {
       if (failed || muted || button.contains(e.target)) return;
-      if (!audio || audio.paused) play();
+      if (!audio || audio.paused) {
+        resumeOnReturn = false;
+        play(false);
+      }
     }
     for (const type of ['pointerdown', 'touchstart', 'keydown', 'pointerup', 'touchend', 'click']) {
       document.addEventListener(type, onGesture, { capture: true, passive: true });
