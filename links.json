@@ -1,0 +1,23 @@
+{
+  "welcome": "Seja bem-vindo inspirado(a)",
+  "social": [
+    { "name": "spotify",   "url": "https://open.spotify.com/user/31elwa64kndcyqyg2b7wbxo67h3a", "show": true },
+    { "name": "instagram", "url": "https://www.instagram.com/use.sacro", "show": true },
+    { "name": "tiktok",    "url": "https://www.tiktok.com/@use.sacro", "show": true },
+    { "name": "youtube",   "url": "", "show": false },
+    { "name": "discord",   "url": "", "show": false }
+  ],
+  "buttons": [
+    { "label": "LOJA ONLINE", "url": "https://usesacro.com.br/produto/" },
+    { "label": "GRUPO VIP",   "url": "https://chat.whatsapp.com/IR19nRUUWBLHm8HcfKgQv2" },
+    { "label": "SUPORTE",     "url": "https://wa.me/5531971384704" }
+  ],
+  "novidades": { "title": "NOVIDADES", "image": "", "url": "" },
+  "music": {
+    "enabled": true,
+    "file": "assets/trilha.mp3",
+    "credit": "“Miserere mei, Deus” (Gregorio Allegri) · Ensamble Escénico Vocal, Sistema Nacional de Fomento Musical (México), via Wikimedia Commons · CC BY 3.0 · trecho editado",
+    "creditUrl": "https://commons.wikimedia.org/wiki/File:Allegri_-_Miserere_Mei,_Deus_-_Ensamble_Esc%C3%A9nico_Vocal.webm"
+  },
+  "neon": "animado"
+}

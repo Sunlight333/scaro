@@ -1,0 +1,553 @@
+/* SACRO · link na bio */
+
+@font-face {
+  font-family: "Exo 2";
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+  src: url("assets/fonts/exo2-300-italic-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+  --bg: #0b0b0b;
+  --text: #ececec;
+  --text-soft: #cfcfcf;
+  --text-muted: #8f8f8f;
+
+  --font-brand: "Exo 2", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --col: min(clamp(240px, 72vw, 400px), 100% - 32px);
+  --btn-h: clamp(46px, 12.5vw, 54px);
+  --r: calc(var(--btn-h) / 2);        /* corner radius of buttons and card */
+  --gap: clamp(18px, 6vw, 28px);
+
+  /* neon, variant A (static) */
+  --edge: rgba(255, 255, 255, 0.82);
+  --glow: rgba(255, 255, 255, 0.26);
+  --edge-hot: #fff;
+  --glow-hot: rgba(255, 255, 255, 0.5);
+
+  --speed: 180ms;
+  --consent-h: 0px;                   /* set by app.js while the privacy notice is open */
+}
+
+/* ---------- Base ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--bg);
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-brand);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Subtle light in the top-left and bottom-right corners, fixed while scrolling */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 45% at 0% 0%, rgba(255, 255, 255, 0.085), transparent 70%),
+    radial-gradient(70% 45% at 100% 100%, rgba(255, 255, 255, 0.05), transparent 70%),
+    linear-gradient(180deg, #0f0f0f, #0a0a0a);
+}
+
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------- Layout ---------- */
+
+.page {
+  width: var(--col);
+  margin: 0 auto;
+  padding-top: calc(clamp(24px, 8vw, 40px) + env(safe-area-inset-top));
+  padding-bottom: calc(96px + env(safe-area-inset-bottom) + var(--consent-h));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.logo { margin: 0; line-height: 0; }
+
+.logo img {
+  display: block;
+  height: clamp(80px, 26vw, 110px);
+  width: auto;
+}
+
+.welcome {
+  margin: clamp(16px, 5vw, 22px) 0 0;
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(16px, 4.8vw, 20px);
+  letter-spacing: 0.02em;
+  color: var(--text-soft);
+}
+
+/* ---------- Social icons ---------- */
+
+.social {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: clamp(14px, 4.5vw, 20px);
+}
+
+.social:empty { display: none; }
+
+.social__link {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: #d4d4d4;
+  transition: color var(--speed) ease, filter var(--speed) ease;
+}
+
+.social__icon {
+  width: 28px;
+  height: 28px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+/* Used by the no-JavaScript fallback (app.js sets --icon itself) */
+.social__icon--spotify   { --icon: url("assets/icons/spotify.svg"); }
+.social__icon--instagram { --icon: url("assets/icons/instagram.svg"); }
+.social__icon--tiktok    { --icon: url("assets/icons/tiktok.svg"); }
+.social__icon--youtube   { --icon: url("assets/icons/youtube.svg"); }
+.social__icon--discord   { --icon: url("assets/icons/discord.svg"); }
+
+.social__link:active { color: #fff; filter: drop-shadow(0 0 6px var(--glow-hot)); }
+
+@media (hover: hover) {
+  .social__link:hover { color: #fff; filter: drop-shadow(0 0 6px var(--glow-hot)); }
+}
+
+/* ---------- Neon surface (buttons + Novidades card) ---------- */
+
+.links {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  margin-top: clamp(20px, 7vw, 32px);
+}
+
+.neon {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r);
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: 0 0 12px var(--glow), 0 0 2px var(--glow);
+  transition: box-shadow var(--speed) ease;
+}
+
+/* Dark glassy fill, diagonal highlight and the 1px light border */
+.neon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  border: 1px solid var(--edge);
+  background:
+    radial-gradient(60% 150% at 6% -10%, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.07) 45%, transparent 70%),
+    radial-gradient(45% 140% at 100% 120%, rgba(255, 255, 255, 0.2), transparent 65%),
+    linear-gradient(115deg, #050505 20%, #0c0c0c 60%, #1d1d1d 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: border-color var(--speed) ease;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--btn-h);
+}
+
+.btn__label {
+  padding: 0 1.2em;
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(16px, 4.6vw, 19px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+a.neon:active { box-shadow: 0 0 18px var(--glow-hot), 0 0 3px var(--glow-hot); }
+a.neon:active::before { border-color: var(--edge-hot); }
+
+@media (hover: hover) {
+  a.neon:hover { box-shadow: 0 0 18px var(--glow-hot), 0 0 3px var(--glow-hot); }
+  a.neon:hover::before { border-color: var(--edge-hot); }
+}
+
+/* ---------- Neon variant B: a light spot circling the border ---------- */
+
+/*
+  Each button/card carries two tracks (created by app.js, hidden in variant A):
+  .neon__halo  soft glow behind the fill (only the part outside the border shows)
+  .neon__ring  bright spot clipped to the 1.5px border ring
+  Inside each, .neon__path is the size of the button; its top-left corner is
+  moved around the rounded outline with transform only (GPU, no repaint),
+  so the spot travels at an even speed along straight edges and curves.
+*/
+
+.neon__halo,
+.neon__ring {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+}
+
+.neon__halo {
+  inset: -24px;
+  z-index: -2;
+  overflow: hidden;
+}
+
+.neon__halo > .neon__path { inset: 24px; }
+
+.neon__ring {
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  padding: 1.5px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.neon__ring > .neon__path { inset: 0; }
+
+.neon__path {
+  position: absolute;
+  will-change: transform;
+  animation: orbit-pill 6s linear infinite;
+  animation-delay: calc(var(--i, 0) * -0.9s);
+}
+
+.card .neon__path { animation-name: orbit-card; animation-duration: 8.5s; }
+
+.neon__path::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--spot);
+  height: var(--spot);
+  margin: calc(var(--spot) / -2) 0 0 calc(var(--spot) / -2);
+  border-radius: 50%;
+}
+
+/* Fits inside the halo's 24px margin, so it is never cut off */
+.neon__halo .neon__path::before {
+  --spot: 46px;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.12) 50%, transparent);
+}
+
+.neon__ring .neon__path::before {
+  --spot: 96px;
+  background: radial-gradient(closest-side, #fff, rgba(255, 255, 255, 0.75) 30%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-neon="animado"] .neon__halo,
+  [data-neon="animado"] .neon__ring { display: block; }
+
+  [data-neon="animado"] .neon {
+    --edge: rgba(255, 255, 255, 0.5);
+    --glow: rgba(255, 255, 255, 0.13);
+  }
+}
+
+/*
+  Paths trace the outline clockwise from the top-left end of the top edge.
+  r = corner radius, 100% = element size. Quarter circles are sampled every
+  22.5 degrees (0.0761, 0.2929, 0.6173 = 1 - cos / 1 - sin of those angles).
+  Keyframe percentages match segment lengths for a typical phone size
+  (pill ~300x50, card ~300x190) so the speed stays even.
+*/
+
+@keyframes orbit-pill {
+  0%     { transform: translate(var(--r), 0); }
+  38.05% { transform: translate(calc(100% - var(--r)), 0); }
+  39.54% { transform: translate(calc(100% - var(--r) * 0.6173), calc(var(--r) * 0.0761)); }
+  41.04% { transform: translate(calc(100% - var(--r) * 0.2929), calc(var(--r) * 0.2929)); }
+  42.53% { transform: translate(calc(100% - var(--r) * 0.0761), calc(var(--r) * 0.6173)); }
+  44.02% { transform: translate(100%, var(--r)); }
+  45.52% { transform: translate(calc(100% - var(--r) * 0.0761), calc(100% - var(--r) * 0.6173)); }
+  47.01% { transform: translate(calc(100% - var(--r) * 0.2929), calc(100% - var(--r) * 0.2929)); }
+  48.51% { transform: translate(calc(100% - var(--r) * 0.6173), calc(100% - var(--r) * 0.0761)); }
+  50%    { transform: translate(calc(100% - var(--r)), 100%); }
+  88.05% { transform: translate(var(--r), 100%); }
+  89.54% { transform: translate(calc(var(--r) * 0.6173), calc(100% - var(--r) * 0.0761)); }
+  91.04% { transform: translate(calc(var(--r) * 0.2929), calc(100% - var(--r) * 0.2929)); }
+  92.53% { transform: translate(calc(var(--r) * 0.0761), calc(100% - var(--r) * 0.6173)); }
+  94.02% { transform: translate(0, calc(100% - var(--r))); }
+  95.52% { transform: translate(calc(var(--r) * 0.0761), calc(var(--r) * 0.6173)); }
+  97.01% { transform: translate(calc(var(--r) * 0.2929), calc(var(--r) * 0.2929)); }
+  98.51% { transform: translate(calc(var(--r) * 0.6173), calc(var(--r) * 0.0761)); }
+  100%   { transform: translate(var(--r), 0); }
+}
+
+@keyframes orbit-card {
+  0%     { transform: translate(var(--r), 0); }
+  26.68% { transform: translate(calc(100% - var(--r)), 0); }
+  27.73% { transform: translate(calc(100% - var(--r) * 0.6173), calc(var(--r) * 0.0761)); }
+  28.78% { transform: translate(calc(100% - var(--r) * 0.2929), calc(var(--r) * 0.2929)); }
+  29.83% { transform: translate(calc(100% - var(--r) * 0.0761), calc(var(--r) * 0.6173)); }
+  30.87% { transform: translate(100%, var(--r)); }
+  45.81% { transform: translate(100%, calc(100% - var(--r))); }
+  46.86% { transform: translate(calc(100% - var(--r) * 0.0761), calc(100% - var(--r) * 0.6173)); }
+  47.90% { transform: translate(calc(100% - var(--r) * 0.2929), calc(100% - var(--r) * 0.2929)); }
+  48.95% { transform: translate(calc(100% - var(--r) * 0.6173), calc(100% - var(--r) * 0.0761)); }
+  50%    { transform: translate(calc(100% - var(--r)), 100%); }
+  76.68% { transform: translate(var(--r), 100%); }
+  77.73% { transform: translate(calc(var(--r) * 0.6173), calc(100% - var(--r) * 0.0761)); }
+  78.78% { transform: translate(calc(var(--r) * 0.2929), calc(100% - var(--r) * 0.2929)); }
+  79.83% { transform: translate(calc(var(--r) * 0.0761), calc(100% - var(--r) * 0.6173)); }
+  80.87% { transform: translate(0, calc(100% - var(--r))); }
+  95.81% { transform: translate(0, var(--r)); }
+  96.86% { transform: translate(calc(var(--r) * 0.0761), calc(var(--r) * 0.6173)); }
+  97.90% { transform: translate(calc(var(--r) * 0.2929), calc(var(--r) * 0.2929)); }
+  98.95% { transform: translate(calc(var(--r) * 0.6173), calc(var(--r) * 0.0761)); }
+  100%   { transform: translate(var(--r), 0); }
+}
+
+/* ---------- Novidades card ---------- */
+
+.novidades {
+  width: 100%;
+  margin-top: var(--gap);
+}
+
+.novidades:empty { display: none; }
+
+.card { display: block; }
+
+.card__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-h);
+  margin: 1px 1px 0;
+  border-radius: calc(var(--r) - 1px) calc(var(--r) - 1px) 0 0;
+  background: linear-gradient(180deg, #050505, #000);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1), 0 6px 12px rgba(0, 0, 0, 0.55);
+  position: relative;
+  z-index: 1;
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(16px, 4.6vw, 19px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.card__media {
+  display: block;
+  margin: 0 1px 1px;
+  overflow: hidden;
+  border-radius: 0 0 calc(var(--r) - 1px) calc(var(--r) - 1px);
+  aspect-ratio: 1200 / 560;
+  background: #111;
+}
+
+.card__media > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card__placeholder {
+  position: relative;
+  display: block;
+  height: 100%;
+  background:
+    radial-gradient(55% 80% at 50% 50%, rgba(255, 255, 255, 0.11), transparent 70%),
+    linear-gradient(160deg, #1b1b1b, #070707 70%);
+}
+
+.card__placeholder > img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 62%;
+  width: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0.5;
+}
+
+.card--static { cursor: default; }
+
+/* ---------- Footer credit ---------- */
+
+.credit {
+  margin: 28px 0 0;
+  max-width: 100%;
+  font: 12px/1.45 var(--font-ui);
+  color: var(--text-muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.credit a { text-underline-offset: 2px; }
+
+/* ---------- Mute button ---------- */
+
+.mute {
+  position: fixed;
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(14px + env(safe-area-inset-bottom) + var(--consent-h));
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(18, 18, 18, 0.78);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #dcdcdc;
+  cursor: pointer;
+  transition: border-color var(--speed) ease, box-shadow var(--speed) ease, bottom 200ms ease;
+}
+
+.mute svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.mute .mute__wave {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.mute__off,
+.mute[aria-pressed="true"] .mute__on { display: none; }
+.mute[aria-pressed="true"] .mute__off { display: block; }
+
+.mute:active { border-color: #fff; box-shadow: 0 0 10px var(--glow-hot); }
+
+@media (hover: hover) {
+  .mute:hover { border-color: #fff; box-shadow: 0 0 10px var(--glow-hot); }
+}
+
+/* ---------- Privacy notice (LGPD) ---------- */
+
+.consent {
+  position: fixed;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  z-index: 20;
+  transform: translateX(-50%);
+  width: min(440px, 100% - 20px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(20, 20, 20, 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  font: 13px/1.4 var(--font-ui);
+  color: var(--text-soft);
+}
+
+.consent__text { flex: 1 1 220px; margin: 0; }
+
+.consent__actions { display: flex; gap: 8px; margin-left: auto; }
+
+.consent__btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.consent__btn--accept {
+  background: #f2f2f2;
+  border-color: #f2f2f2;
+  color: #0b0b0b;
+}
+
+/* ---------- links.json check (only with ?verificar in the URL) ---------- */
+
+.check {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 30;
+  transform: translateX(-50%);
+  width: min(440px, 100% - 20px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  font: 14px/1.45 var(--font-ui);
+  white-space: pre-line;
+  color: #fff;
+  background: #1f5f2c;
+}
+
+.check--error { background: #8a1c1c; }
+.check--warn { background: #6e5200; }
+
+/* ---------- Motion preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation: none !important;
+  }
+}
